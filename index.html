@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="검색어를 넣으면 2000~2010년대 한국 웹을 뒤덮던 키워드 스팸 게시글을 재현합니다.">
+<meta property="og:title" content="워드샐러드 생성기">
+<meta property="og:description" content="검색어를 넣으면 2000~2010년대 한국 웹을 뒤덮던 키워드 스팸 게시글을 재현합니다.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a246a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232f7d1e'/%3E%3Ctext x='16' y='23' font-size='20' font-family='Arial' font-weight='700' fill='%23fff' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E">
+<title>워드샐러드 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap">
+<style>
+/* 레이아웃: 회색 데스크톱 위의 낡은 브라우저 창 하나. 창 안은 가상의 포털 검색결과 → 스팸 게시글 본문.
+   단일 테마(2009년의 흰 웹페이지)로 고정한다. */
+:root{
+  color-scheme:light;
+  --desk:#c9c6bd; --page:#ffffff; --ink:#222222; --muted:#777777; --line:#b9b9b9; --soft:#f3f3f1;
+  --link:#1b3ec2; --visited:#6a2c91; --hit:#cc0000; --bar1:#0a246a; --bar2:#5d86c4; --green:#2f7d1e;
+  --f-old:"굴림",Gulim,"Nanum Gothic","돋움",Dotum,sans-serif;
+  --f-nanum:"Nanum Gothic","굴림",Gulim,sans-serif;
+}
+*{box-sizing:border-box}
+body{background:var(--desk);color:var(--ink);font-family:var(--f-old);font-size:13px;line-height:1.6;padding-inline:16px;padding-block:24px 40px}
+a,button{font:inherit}
+.win{max-width:980px;margin:0 auto;background:var(--page);border:2px solid;border-color:#fff #6e6e6e #6e6e6e #fff;box-shadow:1px 1px 0 #3d3d3d}
+.titlebar{display:flex;align-items:center;gap:8px;padding:4px 6px;background:linear-gradient(90deg,var(--bar1),var(--bar2));color:#fff;font-weight:700;font-size:12px}
+.titlebar .dots{margin-left:auto;display:flex;gap:3px}
+.titlebar .dots i{width:16px;height:14px;background:#d4d0c8;border:1px solid;border-color:#fff #404040 #404040 #fff}
+.addr{display:flex;align-items:center;gap:6px;padding:4px 6px;background:#ece9d8;border-bottom:1px solid var(--line);font-size:12px;min-width:0}
+.addr span{flex:none;color:#444}
+.addr code{flex:1;min-width:0;background:#fff;border:1px solid #7f9db9;padding:1px 4px;font-family:var(--f-old);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inner{padding:18px 20px 24px;display:grid;gap:16px}
+@media (max-width:520px){.inner{padding:14px 12px 20px}}
+
+/* 포털 헤더 */
+.portal{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.logo{font-family:var(--f-nanum);font-weight:800;font-size:26px;letter-spacing:-.04em;color:var(--green);line-height:1}
+.logo b{color:var(--bar1)}
+form.search{display:flex;flex:1 1 260px;min-width:0;max-width:560px}
+form.search input{flex:1;min-width:0;font:inherit;font-size:15px;padding:6px 8px;border:3px solid var(--green);border-right:0;outline:none}
+form.search input:focus-visible{background:#fffbe6}
+form.search button{border:0;background:var(--green);color:#fff;font-weight:700;padding:0 16px;cursor:pointer}
+form.search button:focus-visible,.tabs button:focus-visible,.res-title:focus-visible,.opt button:focus-visible{outline:2px dotted var(--ink);outline-offset:2px}
+.tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:2px solid var(--green)}
+.tabs span{padding:5px 14px;color:var(--muted);font-size:12px}
+.tabs span.on{background:var(--green);color:#fff;font-weight:700}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:20px}
+/* 좁은 화면: 옵션은 결과 위(접힌 막대), 급상승 검색어는 맨 아래 */
+@media (max-width:760px){
+  .cols{display:flex;flex-direction:column}
+  .cols>aside{display:contents}
+  .optbox{order:-1}
+  .main{order:0}
+  .rankbox{order:1}
+}
+.optbox summary{list-style:none;display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;font-weight:700;background:var(--soft)}
+.optbox summary::-webkit-details-marker{display:none}
+.optbox[open] summary{border-bottom:1px solid var(--line)}
+.optbox .sumvals,.optbox .arrow{display:none}
+@media (max-width:760px){
+  .optbox summary{cursor:pointer}
+  .optbox .sumvals{display:inline;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+  .optbox .arrow{display:inline;margin-left:auto;font-weight:400;color:var(--muted)}
+  .optbox .arrow::after{content:"펼치기 ▼"}
+  .optbox[open] .arrow::after{content:"접기 ▲"}
+  .optbox summary:focus-visible{outline:2px dotted var(--ink);outline-offset:2px}
+}
+.main{display:grid;gap:22px;min-width:0}
+.count{font-size:12px;color:var(--muted)}
+.count b{color:var(--hit)}
+
+/* 검색결과 */
+.results{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.res{display:grid;gap:2px;min-width:0}
+.res-title{all:unset;cursor:pointer;color:var(--link);font-size:14px;text-decoration:underline;font-weight:700;overflow-wrap:anywhere}
+.res-title.seen{color:var(--visited)}
+.res-title[aria-current="true"]::before{content:"▶ ";color:var(--hit);text-decoration:none}
+.res p{margin:0;color:#444;overflow-wrap:anywhere}
+.res p b{color:var(--hit)}
+.res .src{font-size:12px;color:var(--green);overflow-wrap:anywhere}
+
+/* 게시글 */
+.post{border:1px solid var(--line);min-width:0}
+.crumb{background:var(--soft);border-bottom:1px solid var(--line);padding:5px 10px;font-size:12px;color:var(--muted)}
+.post h2{margin:0;padding:12px 10px 6px;font-size:16px;font-family:var(--f-nanum);font-weight:800;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;padding:0 10px 10px;border-bottom:1px dotted var(--line);font-size:12px;color:var(--muted)}
+.meta b{color:var(--ink);font-weight:400}
+.copybar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px 10px;padding:6px 12px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.btn{border:1px solid;border-color:#fff #6e6e6e #6e6e6e #fff;background:#d4d0c8;color:var(--ink);padding:3px 12px;cursor:pointer;font-size:12px;min-width:7em}
+.btn:active{border-color:#6e6e6e #fff #fff #6e6e6e}
+.btn:focus-visible{outline:2px dotted var(--ink);outline-offset:2px}
+.body{padding:10px 12px 4px;display:grid;gap:14px;line-height:1.85;word-break:keep-all;overflow-wrap:anywhere}
+.body p{margin:0}
+.attach{margin:4px 12px 14px;padding:8px 10px;border:1px dashed var(--line);background:#fafaf5;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.attach u{color:var(--link)}
+.tags,.related{padding:8px 12px;border-top:1px solid #e3e3e3;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px}
+.tags span{color:var(--link)}
+.related span{color:var(--link);text-decoration:underline}
+.comments{list-style:none;margin:0;padding:8px 12px 12px;border-top:1px solid #e3e3e3;background:var(--soft);display:grid;gap:6px;font-size:12px}
+.comments li{display:flex;flex-wrap:wrap;gap:2px 8px;overflow-wrap:anywhere}
+.comments .who{font-weight:700}
+.comments .when{color:var(--muted)}
+.counter{text-align:center;font-size:11px;color:var(--muted);padding:8px;border-top:1px solid #e3e3e3}
+
+/* 옵션 */
+aside{display:grid;gap:12px;align-content:start}
+.box{border:1px solid var(--line)}
+.box h3{margin:0;padding:5px 8px;font-size:12px;background:var(--soft);border-bottom:1px solid var(--line)}
+.opt{padding:8px;display:grid;gap:12px}
+.field{position:relative;display:grid;gap:2px}
+.head{display:flex;align-items:center;gap:5px;font-size:12px}
+.q{all:unset;cursor:help;width:13px;height:13px;border:1px solid var(--muted);border-radius:50%;font-size:10px;line-height:13px;text-align:center;color:var(--muted);font-weight:700;flex:none}
+.q:hover,.q:focus-visible,.q[aria-expanded="true"]{background:var(--link);border-color:var(--link);color:#fff}
+.q:focus-visible{outline:2px dotted var(--ink);outline-offset:2px}
+/* 윈도우 고전 툴팁 모양 */
+.tipbox{position:absolute;z-index:5;top:20px;left:0;right:0;background:#ffffe1;border:1px solid #000;padding:5px 7px;box-shadow:2px 2px 0 rgba(0,0,0,.25);display:grid;gap:3px}
+.opt .row{display:flex;align-items:center;gap:6px}
+.opt input[type=range]{flex:1;min-width:0;accent-color:var(--green)}
+.opt output{font-variant-numeric:tabular-nums;width:2ch;text-align:right}
+.opt button{border:1px solid;border-color:#fff #6e6e6e #6e6e6e #fff;background:#d4d0c8;padding:4px;cursor:pointer}
+.opt button:active{border-color:#6e6e6e #fff #fff #6e6e6e}
+.rank{list-style:none;margin:0;padding:6px 8px;display:grid;gap:3px;font-size:12px}
+.rank li{display:flex;gap:6px;min-width:0}
+.rank em{font-style:normal;font-weight:700;color:var(--hit);width:1.4em;flex:none}
+.rank span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 가이드: 그 시절 포털의 공지·추천검색어·옵션 설명 모양을 빌린다 */
+.suggest{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;color:var(--muted);margin-top:-6px}
+.suggest button{all:unset;cursor:pointer;color:var(--link);text-decoration:underline}
+.suggest button:focus-visible,.notice summary:focus-visible{outline:2px dotted var(--ink);outline-offset:2px}
+.notice{border:1px solid #e0cf8a;background:#fffbe3;font-size:12px}
+.notice summary{cursor:pointer;padding:6px 10px;list-style:none;display:flex;gap:6px;flex-wrap:wrap}
+.notice summary::-webkit-details-marker{display:none}
+.notice summary .tag{color:var(--hit);font-weight:700}
+.notice summary .tog{margin-left:auto;color:var(--muted)}
+.notice[open] summary .tog::after{content:" 닫기 ▲"}
+.notice:not([open]) summary .tog::after{content:" 열기 ▼"}
+.notice ol{margin:0;padding:2px 12px 10px 30px;display:grid;gap:4px;line-height:1.6}
+.notice p{margin:0;padding:0 12px 10px;color:var(--muted);line-height:1.6}
+.notice b{color:var(--ink)}
+.ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:-2px}
+.help{font-size:11px;color:var(--ink);line-height:1.5;margin:0}
+.now{font-size:11px;color:var(--green);font-weight:700;line-height:1.5;margin:0}
+.tip{font-size:11px;color:var(--muted);margin:4px 0 8px}
+.caption{max-width:980px;margin:14px auto 0;color:#4b4a44;font-family:var(--f-nanum);font-size:13px;line-height:1.6}
+.caption b{color:#222}
+</style>
+<style>
+/* 아티팩트 환경이 대신 넣어 주던 기본 리셋 */
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.caption a{color:var(--link)}
+</style>
+</head>
+<body>
+<div class="win" role="application" aria-label="워드샐러드 생성기">
+  <div class="titlebar"><span>WORDSALAD 검색 - 웹 탐색기</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+  <div class="addr"><span>주소(D)</span><code id="addr">http://search.wordsalad/search?q=</code></div>
+  <div class="inner">
+    <div class="portal">
+      <div class="logo" aria-hidden="true">WORD<b>SALAD</b></div>
+      <form class="search" id="form" role="search">
+        <label for="q" class="sr" hidden>검색어</label>
+        <input id="q" autocomplete="off" value="스타크래프트 립버전 1.16.1">
+        <button type="submit">검색</button>
+      </form>
+    </div>
+    <div class="suggest" id="suggest"><span>추천 검색어 :</span></div>
+    <div class="tabs" aria-hidden="true"><span>통합검색</span><span class="on">블로그</span><span>카페</span><span>지식iN</span><span>자료실</span></div>
+
+    <details class="notice" id="notice" open>
+      <summary><span class="tag">[공지]</span><span>처음 오셨나요? 이용 안내</span><span class="tog"></span></summary>
+      <p>이곳은 <b>2000~2010년대 검색결과를 뒤덮던 스팸 블로그</b>를 재현하는 곳입니다. 당시 스팸은 누군가의 소설을 아무렇게나 잘라 붙이고, 사이사이에 사람들이 많이 찾는 검색어를 끼워 넣어 만들어졌습니다.</p>
+      <ol>
+        <li>검색창에 <b>아무 검색어나</b> 넣고 [검색]을 누르세요. 그 검색어를 노린 스팸 글 5개가 만들어집니다.</li>
+        <li>검색결과의 <b>파란 제목</b>을 누르면 아래에 게시글 본문이 열립니다.</li>
+        <li>[검색 옵션]의 막대를 움직이면 스팸의 질감이 바뀌고, 글이 바로 새로 만들어집니다. [다시 검색]을 누를 때마다 다른 글이 나옵니다.</li>
+      </ol>
+    </details>
+
+    <div class="cols">
+      <div class="main">
+        <div>
+          <div class="count" id="count"></div>
+          <p class="tip">▼ 제목을 누르면 게시글이 열립니다</p>
+          <ol class="results" id="results"></ol>
+        </div>
+        <article class="post" id="post" aria-live="polite"></article>
+      </div>
+
+      <aside>
+        <details class="box optbox" id="optbox" open>
+          <summary><span>검색 옵션</span><span class="sumvals" id="sumvals"></span><span class="arrow" aria-hidden="true"></span></summary>
+          <div class="opt">
+            <div class="field">
+              <div class="head"><label for="density">키워드 밀도</label><button type="button" class="q" aria-label="키워드 밀도 도움말" aria-expanded="false" aria-controls="t-density">?</button></div>
+              <div class="tipbox" id="t-density" role="tooltip" hidden><p class="help">본문 사이에 검색어가 얼마나 자주 끼어드는지 정합니다.</p><p class="now" id="n-density"></p></div>
+              <span class="row"><input type="range" id="density" min="1" max="10" value="3" aria-describedby="t-density"><output for="density">3</output></span>
+              <div class="ends" aria-hidden="true"><span>드문드문</span><span>도배</span></div>
+            </div>
+
+            <div class="field">
+              <div class="head"><label for="glitch">수집 오류(글자 탈락)</label><button type="button" class="q" aria-label="수집 오류 도움말" aria-expanded="false" aria-controls="t-glitch">?</button></div>
+              <div class="tipbox" id="t-glitch" role="tooltip" hidden><p class="help">글을 긁어 오다 단어가 빠지고 "는", "을" 같은 조사만 덩그러니 남거나, 문단이 단어 중간에서 시작되는 정도입니다.</p><p class="now" id="n-glitch"></p></div>
+              <span class="row"><input type="range" id="glitch" min="0" max="10" value="3" aria-describedby="t-glitch"><output for="glitch">3</output></span>
+              <div class="ends" aria-hidden="true"><span>멀쩡함</span><span>너덜너덜</span></div>
+            </div>
+
+            <div class="field">
+              <div class="head"><label for="length">글 길이</label><button type="button" class="q" aria-label="글 길이 도움말" aria-expanded="false" aria-controls="t-length">?</button></div>
+              <div class="tipbox" id="t-length" role="tooltip" hidden><p class="help">게시글 본문의 문단 수를 정합니다. 문단 하나는 150~230자 정도입니다.</p><p class="now" id="n-length"></p></div>
+              <span class="row"><input type="range" id="length" min="1" max="12" value="5" aria-describedby="t-length"><output for="length">5</output></span>
+              <div class="ends" aria-hidden="true"><span>짧게</span><span>길게</span></div>
+            </div>
+
+            <button type="button" id="again">다시 검색</button>
+          </div>
+        </details>
+        <div class="box rankbox">
+          <h3>실시간 급상승 검색어</h3>
+          <ol class="rank" id="rank"></ol>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<p class="caption"><b>워드샐러드 생성기.</b> 2000~2010년대 한국 웹에서 검색어를 쫓아 자동으로 만들어지던 스팸 게시글을 재현합니다. 본문에 쓰인 소설 조각은 모두 새로 지은 가상의 문장입니다. <a href="/">ktkring.com</a></p>
+
+<script>
+/* ───────── 재료 ───────── */
+// 번역체 판타지·로맨스·무협 소설 조각(새로 지은 문장). {A},{B}는 인물명 자리.
+const NOVELS = [
+ {names:["니콜라","킴","휴스턴","조나단","엘리스","루시안"], lines:[
+  "마차는 해가 질 무렵이 되어서야 영지의 경계에 들어섰다.",
+  "창밖으로 보이는 밀밭은 오래도록 손질하지 않은 듯 누렇게 말라 있었다.",
+  "\"도착하면 깨워 드릴까요, {A} 님?\"",
+  "{B}의 물음에 {A}는 고개를 저었다.",
+  "\"아니, 괜찮아. 어차피 잠은 오지 않을 테니까.\"",
+  "입구의 철문은 녹이 슬어 반쯤 기울어진 채 바람에 삐걱거리고 있었다.",
+  "현관까지 이어지는 길에는 누군가 낫질을 해 둔 흔적이 있었지만 한 발짝만 벗어나도 무릎까지 오는 덤불이었다.",
+  "{A}는 마차에서 내려 오래된 문장이 새겨진 기둥을 손끝으로 쓸었다.",
+  "십 년 만의 귀향이었지만 반겨 주는 사람은 아무도 없었다.",
+  "\"여기가 정말 공작가의 저택이란 말이야?\"",
+  "{B}는 대답 대신 묵묵히 짐을 내리기 시작했다.",
+  "현관의 샹들리에에는 거미줄이 촛농처럼 늘어져 있었다.",
+  "어딘가에서 괘종시계가 열세 번 울렸다.",
+  "\"이상하네. 이 집에 시계는 하나도 남아 있지 않을 텐데.\""]},
+ {names:["레이나","칼","아델","세린","블레이크","오웬"], lines:[
+  "\"아직도 네 처지를 모르는 모양이군.\"",
+  "{A}는 혀를 차며 검집 끝으로 바닥을 두드렸다.",
+  "\"네가 지금 누구 앞에 서 있는지 알기나 하는 거냐?\"",
+  "\"봐주는 것도 이번이 마지막이다. 어서 이름을 대라.\"",
+  "소년은 입술을 깨물었지만 끝내 고개를 들지 않았다.",
+  "\"감히 어디서 목소리를 높이느냐, 비천한 것이.\"",
+  "그 순간 천막 밖에서 누군가 크게 웃음을 터트렸다.",
+  "\"그만두세요. 저 아이를 데려간다고 해서 달라지는 건 없습니다.\"",
+  "\"숲의 종족은 벌을 주는 법을 배운 적이 없으니까요.\"",
+  "어정쩡한 {B}의 대꾸에 {A}는 잠시 이마에 손을 얹었다.",
+  "귀족들은 저런 식으로 소리 내어 웃는 법을 배우지 않는다.",
+  "숲의 경계에서 은색 피리 소리가 세 번 끊어지며 들려왔다.",
+  "\"오늘 밤이 지나면 저 피리를 부는 자도 사라질 겁니다.\""]},
+ {names:["본드","니나","에릭","소피아","테오","리안"], lines:[
+  "\"정말 고마워요, {A}. 이제야 숨이 좀 쉬어지는 것 같아요.\"",
+  "\"고맙긴. 내가 좋아서 한 일인데.\"",
+  "{A}는 쑥스러운 듯 웃으며 손을 내밀었다.",
+  "{B}는 환한 얼굴로 그 손을 꼭 맞잡았다.",
+  "가슴 한쪽이 뜨거워져서 한동안 아무 말도 할 수 없었다.",
+  "창밖에서는 그해의 첫눈이 내리고 있었다.",
+  "\"내일이면 다시 떠나야 하나요?\"",
+  "\"아마도. 하지만 이번에는 꼭 편지를 쓸게.\"",
+  "{B}는 그 말을 믿지 않았지만 믿는 척하기로 했다.",
+  "장난기 어린 {A}의 말에 {B}는 멍하니 있다가 끝내 웃음을 터트렸다.",
+  "여관 주인이 김이 오르는 수프 두 그릇을 탁자에 내려놓았다.",
+  "\"식기 전에 드세요. 오늘 밤은 꽤 길 테니까.\""]},
+ {names:["진무혁","소연","백리강","운하","단목청"], lines:[
+  "객잔 안은 비릿한 술 냄새와 기름 냄새로 가득했다.",
+  "\"검을 거두시오, {A} 대협.\"",
+  "{B}는 젓가락을 내려놓고 천천히 자리에서 일어섰다.",
+  "\"삼 년 전 화산에서 진 빚을 오늘 받으러 왔소.\"",
+  "탁자 위의 찻잔에 금이 가더니 이내 두 쪽으로 갈라졌다.",
+  "아무도 그가 언제 검을 뽑았는지 보지 못했다.",
+  "\"그때 그 아이가 이렇게 자랐을 줄은 몰랐군.\"",
+  "{A}의 소매 끝에서 붉은 실 한 가닥이 바닥으로 떨어졌다.",
+  "점소이는 쟁반을 든 채 기둥 뒤에 숨어 숨을 죽였다."]},
+ // 게임 판타지
+ {names:["카이엔","루나","제로스","하빈","레온"], lines:[
+  "접속과 동시에 익숙한 종소리가 귓가를 울렸다.",
+  "[레벨이 올랐습니다.] 눈앞에 반투명한 창이 떠올랐다.",
+  "\"또 그 퀘스트야? 벌써 일주일째잖아.\"",
+  "{A}는 어깨를 으쓱하며 낡은 단검을 허리에 찼다.",
+  "마을 광장에는 초보자들이 모여 파티원을 구하고 있었다.",
+  "\"{B}, 오늘은 북쪽 동굴까지만 가자.\"",
+  "동굴 입구에는 누가 꽂아 둔 것인지 모를 녹슨 깃발 하나가 서 있었다.",
+  "몬스터의 울음소리가 생각보다 가까운 곳에서 들려왔다.",
+  "\"잠깐, 미니맵에 아무것도 안 보이는데?\"",
+  "{A}의 체력 바가 순식간에 절반으로 줄어들었다.",
+  "그것은 공략집 어디에도 나와 있지 않은 몬스터였다.",
+  "\"로그아웃 버튼이…… 없어.\"",
+  "{B}의 목소리가 처음으로 떨리고 있었다.",
+  "서버 시간은 정확히 새벽 네 시 사십사 분에서 멈춰 있었다.",
+  "어둠 속에서 누군가 그의 아이디를 천천히 불렀다."]},
+ // 인터넷 연애소설·학원물
+ {names:["은하","지후","세진","하율","도윤","서아"], lines:[
+  "그날따라 교실 창문으로 들어오는 햇빛이 유난히 눈부셨다.",
+  "\"야, {A}. 너 또 지각이냐?\"",
+  "{B}는 대답 대신 내 책상 위에 우유 하나를 툭 올려놓았다.",
+  "딸기맛이었다. 내가 제일 싫어하는 맛.",
+  "\"먹어. 아침 안 먹었잖아.\"",
+  "반 아이들의 시선이 일제히 우리 쪽으로 쏠렸다.",
+  "나는 괜히 창밖만 바라보며 빨대를 꽂았다.",
+  "운동장에서는 축구공이 이리저리 굴러다니고 있었다.",
+  "\"방과 후에 옥상으로 와. 할 말 있어.\"",
+  "쪽지는 연필로 꾹꾹 눌러 쓴 글씨였다.",
+  "하루 종일 수업 내용이 하나도 들어오지 않았다.",
+  "옥상 문은 이상하게도 잠겨 있지 않았다.",
+  "{B}는 난간에 기대어 노을을 보고 있었다.",
+  "\"나 다음 주에 전학 가.\"",
+  "바람이 불어 그 애의 교복 넥타이가 펄럭였다."]},
+ // 궁중 로맨스 판타지
+ {names:["아이리스","카시안","에블린","라파엘","비비안","노아"], lines:[
+  "무도회장의 샹들리에가 수천 개의 촛불을 머금고 반짝였다.",
+  "\"황태자 전하께서 입장하십니다.\"",
+  "시종의 외침에 홀 안의 모든 대화가 일제히 멈췄다.",
+  "{A}는 부채로 입가를 가린 채 조용히 숨을 골랐다.",
+  "이번 생에서는 절대 저 남자와 엮이지 않을 생각이었다.",
+  "첫 번째 생에서 그녀는 저 남자의 손에 죽었다.",
+  "\"레이디, 저와 한 곡 추시겠습니까?\"",
+  "눈앞에 내밀어진 흰 장갑을 보며 {A}는 미소를 지었다.",
+  "\"죄송하지만 발목을 조금 다쳐서요.\"",
+  "{B}의 붉은 눈동자가 흥미롭다는 듯 가늘어졌다.",
+  "\"이상하군. 아까는 계단을 잘만 내려오던데.\"",
+  "등 뒤에서 누군가 와인잔을 떨어뜨리는 소리가 났다.",
+  "깨진 유리 조각 위로 보랏빛 액체가 천천히 번져 나갔다.",
+  "\"독이다! 모두 잔을 내려놓아라!\"",
+  "그 순간 {A}는 이 장면을 이미 한 번 본 적이 있다는 것을 깨달았다."]},
+ // 도시 괴담
+ {names:["민수","지영","현우","수아","태식"], lines:[
+  "엘리베이터는 아무도 누르지 않은 십삼 층에서 멈췄다.",
+  "문이 열렸지만 복도에는 불이 하나도 켜져 있지 않았다.",
+  "\"누가 장난친 거 아니야?\"",
+  "{A}가 닫힘 버튼을 연달아 눌렀지만 문은 꿈쩍도 하지 않았다.",
+  "복도 끝에서 무언가 바닥을 긁는 소리가 들려왔다.",
+  "휴대폰 화면에는 서비스 지역이 아닙니다라는 글자만 떠 있었다.",
+  "{B}는 내 팔을 꽉 붙잡은 채 아무 말도 하지 못했다.",
+  "\"이 아파트, 원래 십이 층까지밖에 없잖아.\"",
+  "그 말이 끝나기가 무섭게 복도의 센서등이 하나씩 켜지기 시작했다.",
+  "가장 가까운 불빛 아래에 빨간 우산 하나가 놓여 있었다.",
+  "우산 끝에서는 아직 물이 뚝뚝 떨어지고 있었다.",
+  "밖에는 일주일째 비가 오지 않았다.",
+  "다음 날 경비실 일지에는 그날 밤 엘리베이터 운행 기록이 없었다."]},
+ // SF
+ {names:["한나","오리온","제타","유진","마르코"], lines:[
+  "함선의 인공 중력이 꺼진 지 열두 시간이 지났다.",
+  "떠다니는 커피 방울이 조종석 계기판에 부딪혀 흩어졌다.",
+  "\"본부와의 교신은 여전히 끊겨 있습니다, 함장님.\"",
+  "{A}는 헬멧을 벗고 창밖의 검은 행성을 바라보았다.",
+  "지도에는 존재하지 않는 행성이었다.",
+  "\"{B}, 저 신호를 다시 재생해 봐.\"",
+  "스피커에서 낡은 동요 같은 멜로디가 흘러나왔다.",
+  "그것은 그녀가 어릴 적 할머니에게 들었던 노래였다.",
+  "\"말도 안 돼. 지구에서 사백 광년이나 떨어진 곳이라고.\"",
+  "냉동 수면실의 캡슐 하나가 저절로 열려 있었다.",
+  "캡슐 안에는 아무도 없었고, 유리에 작은 손자국만 남아 있었다.",
+  "항해 일지의 마지막 기록은 그녀 자신의 목소리였다.",
+  "\"이 기록을 듣고 있다면 절대 행성에 착륙하지 마.\""]},
+ // 추리
+ {names:["강 형사","윤서","박 경위","도하","최 반장"], lines:[
+  "피해자의 서재에는 시계가 모두 거꾸로 걸려 있었다.",
+  "\"{A}, 이 방 문은 안에서 잠겨 있었다고 했지?\"",
+  "{B}는 장갑 낀 손으로 책상 위의 찻잔을 들어 올렸다.",
+  "찻잔 바닥에는 설탕이 녹지 않은 채 그대로 가라앉아 있었다.",
+  "\"마지막으로 피해자를 본 사람은 가정부였습니다.\"",
+  "가정부는 그날 밤 아홉 시에 퇴근했다고 진술했다.",
+  "하지만 현관 CCTV에는 아무도 나가는 모습이 찍혀 있지 않았다.",
+  "창틀에는 젖은 낙엽 한 장이 붙어 있었다.",
+  "\"이상하군. 이 근처엔 은행나무가 없는데.\"",
+  "{A}는 수첩을 덮고 천천히 방 안을 한 바퀴 돌았다.",
+  "책장 맨 아래 칸의 책들만 먼지가 쌓여 있지 않았다.",
+  "\"범인은 아직 이 집 안에 있어.\""]},
+ // 동화
+ {names:["토끼 보리","여우 단비","곰 할아버지","다람쥐 콩이"], lines:[
+  "옛날 옛적 안개가 걷히지 않는 숲에 작은 우체국이 하나 있었다.",
+  "우체국장은 늘 졸린 눈을 한 {A}였다.",
+  "하루에 오는 편지는 많아야 한두 통뿐이었다.",
+  "그런데 어느 날 아침, 주소가 적히지 않은 편지가 산더미처럼 쌓여 있었다.",
+  "\"이걸 다 누구에게 전해 주라는 거지?\"",
+  "{B}가 꼬리를 흔들며 편지 한 통을 집어 들었다.",
+  "봉투에서는 비 냄새와 오래된 종이 냄새가 함께 났다.",
+  "편지 안에는 단 한 줄만 적혀 있었다.",
+  "보고 싶어. 아직 거기 있니?",
+  "{A}는 안경을 고쳐 쓰고 숲의 지도를 펼쳤다.",
+  "지도 한구석에 본 적 없는 오솔길이 연필로 그려져 있었다.",
+  "그날 밤 숲의 모든 반딧불이가 한쪽 방향으로 날아갔다."]},
+ // 회귀 헌터물
+ {names:["강민혁","서은비","한도겸","유세라"], lines:[
+  "눈을 떴을 때 나는 십 년 전 고시원 방에 누워 있었다.",
+  "벽에 붙은 달력은 게이트가 처음 열리기 사흘 전을 가리키고 있었다.",
+  "\"돌아왔다. 정말로 돌아왔어.\"",
+  "손바닥에는 아직 마지막 전투의 화상 자국이 희미하게 남아 있었다.",
+  "이번에는 아무도 잃지 않을 것이다.",
+  "나는 지갑에 남은 돈을 세어 보았다. 삼만 이천 원.",
+  "첫 번째 목표는 서울역 지하에 숨겨진 각성석이었다.",
+  "\"{B}? 너 여기서 뭐 해?\"",
+  "편의점 앞에서 마주친 {B}는 아직 아무것도 모르는 얼굴이었다.",
+  "그녀는 전생에서 나를 대신해 죽은 사람이었다.",
+  "\"아저씨, 저 알아요?\"",
+  "나는 대답하지 못하고 그저 컵라면 두 개를 계산대에 올려놓았다.",
+  "하늘 저편에서 처음 보는 별 하나가 깜빡이기 시작했다."]},
+ // 사극
+ {names:["연화","무진","초희","도령"], lines:[
+  "장터 어귀에서 엿장수의 가위 소리가 요란하게 울렸다.",
+  "\"아씨, 이리로 오시면 아니 되옵니다.\"",
+  "{A}는 쓰개치마를 깊이 눌러쓴 채 사람들 틈으로 걸음을 옮겼다.",
+  "약방 앞에는 이미 포졸 둘이 지키고 서 있었다.",
+  "\"어젯밤 윤 대감 댁에 도적이 들었다 하더이다.\"",
+  "사람들의 수군거림이 등 뒤로 바짝 따라붙었다.",
+  "소매 속에 감춘 서찰이 땀에 젖어 눅눅해졌다.",
+  "{B}는 약속한 시각이 지나도 나타나지 않았다.",
+  "대신 낯선 사내 하나가 갓을 비스듬히 쓴 채 다가왔다.",
+  "\"그 서찰, 제게 주시지요.\"",
+  "사내의 손목에는 붉은 매듭 하나가 감겨 있었다.",
+  "그것은 {B}만이 쓰던 표식이었다."]},
+ // 스포츠 청춘물
+ {names:["준호","태민","석우","현진"], lines:[
+  "구 회 말 투 아웃, 관중석의 함성이 귀를 먹먹하게 만들었다.",
+  "{A}는 모자를 고쳐 쓰고 포수의 사인을 기다렸다.",
+  "손끝에 묻은 송진 가루가 땀에 젖어 미끄러웠다.",
+  "\"괜찮아, 네 공 던져!\"",
+  "더그아웃에서 {B}가 목이 터져라 외쳤다.",
+  "타석의 타자는 삼 년 전 같은 팀에서 뛰던 친구였다.",
+  "첫 번째 공은 바깥쪽으로 크게 빠졌다.",
+  "전광판의 숫자가 유난히 느리게 바뀌는 것 같았다.",
+  "두 번째 공을 던지는 순간 어깨에서 무언가 툭 하고 끊어지는 느낌이 들었다.",
+  "공은 천천히, 아주 천천히 홈 플레이트를 향해 날아갔다.",
+  "아무도 숨을 쉬지 않았다."]},
+ // 직장 일상
+ {names:["김 대리","박 과장","이 주임","정 팀장"], lines:[
+  "월요일 아침 아홉 시, 프린터는 또 종이를 씹고 있었다.",
+  "\"{A}, 어제 보낸 보고서 파일이 안 열리던데요.\"",
+  "{A}는 식은땀을 흘리며 메일함을 새로고침했다.",
+  "첨부 파일 이름은 최종_진짜최종_수정본3이었다.",
+  "탕비실에서는 누군가 전자레인지에 생선을 데우고 있었다.",
+  "\"오늘 회식 장소는 늘 가던 곳으로 하죠.\"",
+  "{B}의 한마디에 사무실 공기가 순식간에 무거워졌다.",
+  "창밖으로 퇴근하는 사람들의 우산이 꽃처럼 피어났다.",
+  "모니터 구석에서 메신저 창이 깜빡였다.",
+  "이번 주 금요일까지 가능하시죠?",
+  "{A}는 답장 대신 조용히 커피를 한 모금 마셨다."]}
+];
+const NICKS=["사랑의빵","로딩","☆별빛소녀☆","우울한곰돌이","쭈니","겜돌이","토니","하늘ㅇr래","미니미","즐겜하자","귀차니즘","초코우유","엘리트마린","무적저그","ㅇlㅃlㄴl","꼬마천사","달빛소년","행복한돼지","오렌지쥬스","냥냥펀치"];
+const NOUNS=["상처","비밀","겨울","약속","그림자","귀환","눈물","편지","계절"];
+// 그 시절 게시판·미니홈피·메신저의 말투
+const CULTURE=[
+  "{nick} 님. 출석 체크 했습니다.",
+  "출석 체크 했습니다.",
+  "{name}의 {noun}는 싸이월드에도 있답니다.",
+  "저는 싸이월드에서 도토리 {n}개를 갖고 있거든요.",
+  "{p}부 {name}의 {noun}",
+  "같이 놀아요.",
+  "{nick} 님.",
+  "퍼가요~♡",
+  "좋은 자료 감사합니다 ^^",
+  "미니홈피 일촌 신청 받아요~",
+  "버디버디 아이디 있으신 분 쪽지 주세요.",
+  "투데이 {n} 토탈 {m}",
+  "BGM이 안 나오면 새로고침 해주세요.",
+  "스크랩은 자유지만 출처는 꼭 남겨주세요.",
+  "자료실 포인트 {n}0점 필요합니다.",
+  "즐감하세요~♬",
+  "링크가 깨졌어요 다시 올려주세요 ㅠㅠ",
+  "회원가입 후 열람 가능합니다.",
+  "소년이여 {last}이 되라.",
+  "{nick} 님의 미니홈피에도 있답니다.",
+  "ㅋㅋㅋㅋ 대박",
+  "업로드 중입니다...",
+  "펌) {kw}",
+  "★☆★☆"
+];
+const TITLE_SUFFIX=["다운","다운","다운로드","무료다운","받는곳","다운 ★최신★","설치방법","다운 (100% 성공)","한글판 다운"];
+const REL_SUFFIX=["다운","다운로드","무료","받기","받는곳","설치","최신","한글판","실행 안됨","오류"];
+const COMMENTS=["퍼가요~♡","좋은 자료 감사합니다","출첵","링크가 안떠요;;","잘 받아갑니다 ^^*","이거 진짜 되나요?","스크랩 해갈게요~","님 미니홈피 놀러갈게요","ㅋㅋㅋㅋㅋ","감사감사 ★"];
+const BOARDS=["자료실 > 게임","자유게시판","나의 이야기","스크랩 > 퍼온글","잡담","정보 공유"];
+
+/* ───────── 유틸 ───────── */
+const R=Math.random, ri=(a,b)=>a+Math.floor(R()*(b-a+1)), pick=a=>a[Math.floor(R()*a.length)];
+const wpick=l=>{let r=R()*l.reduce((t,x)=>t+x[0],0);for(const [w,v] of l){if((r-=w)<0)return v}return l[0][1]};
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const JOSA=new Set([..."을를이가은는에의도로와과만"]);
+const $=s=>document.querySelector(s);
+
+/* ───────── 생성 규칙 ───────── */
+function kwParts(kw){
+  const t=kw.trim().split(/\s+/).filter(Boolean);
+  const short=t.length>1?[t[0].slice(0,Math.min(2,t[0].length)),...t.slice(1)].join(" "):t[0];
+  return {t,short,last:t[t.length-1],full:t.join(" ")};
+}
+function kwVariant(k){
+  return wpick([[7,k.full+"다운"],[2,k.full+" 다운로드"],[2,k.full],[1.6,k.short+"다운"],[1,k.last],[.8,k.full+"다운 "+k.full+"다운"],[.6,k.t.slice(1).join(" ")||k.full]]);
+}
+function fill(tpl,k){
+  return tpl.replace(/\{nick\}/g,()=>pick(NICKS)).replace(/\{name\}/g,()=>pick(pick(NOVELS).names))
+    .replace(/\{noun\}/g,()=>pick(NOUNS)).replace(/\{n\}/g,()=>ri(2,48)).replace(/\{m\}/g,()=>ri(1200,98000))
+    .replace(/\{p\}/g,()=>ri(1,4)).replace(/\{last\}/g,k.full).replace(/\{kw\}/g,k.full);
+}
+
+// 한 문단: 소설 조각을 이어 붙이고 → 따옴표 제거·공백 탈락 → 키워드 삽입 → 글자 탈락 → 앞뒤 자르기
+function paragraph(k,o){
+  const nov=pick(NOVELS); const [A,B]=shuffle(nov.names);
+  const start=ri(0,nov.lines.length-1), n=ri(5,8), parts=[];
+  for(let i=0;i<n;i++){
+    parts.push(nov.lines[(start+i)%nov.lines.length].replace(/\{A\}/g,A).replace(/\{B\}/g,B).replace(/["“”]/g,""));
+  }
+  let text=parts.reduce((acc,s)=>!acc?s:acc+(/[.?!~♡]$/.test(acc)&&R()<.55?"":" ")+s,"");
+  let words=text.split(/\s+/).filter(Boolean);
+
+  // 키워드 삽입: 단어 앞에 끼우거나, 단어를 통째로 바꾸되 가끔 조사만 남긴다
+  const m=Math.max(1,Math.round(words.length*o.density/45));
+  for(let i=0;i<m;i++){
+    const pos=ri(1,Math.max(1,words.length-2)), v=kwVariant(k);
+    if(R()<.6) words.splice(pos,0,v);
+    else{const w=words[pos]||"";const tail=w.slice(-1);words[pos]=v+(JOSA.has(tail)&&R()<.35&&!/다운$/.test(v)?tail:"");}
+  }
+  // 수집 오류: 단어가 사라지거나 조사만 남는다
+  const kwSet=new Set(words.filter(w=>w.includes(k.last)));
+  words=words.flatMap(w=>{
+    if(kwSet.has(w)||R()>=o.glitch*.014) return [w];
+    const tail=w.slice(-1); return JOSA.has(tail)&&w.length>1?[tail]:[];
+  });
+  let s=words.join(" ");
+  // 앞: 단어 중간에서 시작
+  // 수집 오류가 클수록 자주 일어난다(0이면 항상 깔끔하게 시작, 기본 3이면 약 4문단에 1번)
+  const first=s.indexOf(" "); if(first>1 && R()<o.glitch*.08) s=s.slice(ri(1,Math.min(first-1,3)));
+  // 뒤: 150~230자 근처에서 끊기(대개 단어 경계, 가끔 단어 중간)
+  const target=ri(150,230);
+  if(s.length>target){
+    let cut=target;
+    if(R()<.7){const sp=s.lastIndexOf(" ",target);if(sp>target*.6)cut=sp;}
+    s=s.slice(0,cut);
+  }
+  return s.replace(/\s+$/,"").replace(/[.?!]$/,R()<.5?"":"$&");
+}
+
+function makePost(k,o,idx){
+  const y=ri(2008,2012), mo=ri(1,12), d=ri(1,28), hh=ri(0,23), mm=ri(0,59);
+  const p2=n=>String(n).padStart(2,"0");
+  const date=`${y}.${p2(mo)}.${p2(d)}`;
+  return {
+    title: wpick([[3,k.full+" "+pick(TITLE_SUFFIX)],[1,"▶"+k.full+"◀ "+pick(TITLE_SUFFIX)],[1,"["+pick(["펌","자료","공유","Re"])+"] "+k.full+pick(TITLE_SUFFIX)]]),
+    author: pick(NICKS), date, time:`${p2(hh)}:${p2(mm)}`, views: ri(3,48000), board: pick(BOARDS),
+    no: ri(1200,99999), path: pick(["/board/view.php?no=","/zboard/view.php?id=pds&no=","/bbs/read.cgi?num=","/blog/post/"]),
+    paras: Array.from({length:o.length},()=>paragraph(k,o)),
+    tags: shuffle([k.full,...k.t,k.full+"다운",k.full+" 다운로드",k.short,k.last+" 무료"]).slice(0,ri(4,7)),
+    related: shuffle(REL_SUFFIX).slice(0,8).map(s=>k.full+" "+s),
+    comments: Array.from({length:ri(2,5)},(_,i)=>({who:pick(NICKS),when:`${date} ${p2(Math.min(23,hh+i+1))}:${p2(ri(0,59))}`,text:pick(COMMENTS)})),
+    today: ri(2,140), total: ri(3000,190000), file: k.t.join("_").replace(/[^\w.가-힣]/g,"")+pick([".zip",".exe",".alz",".egg"]),
+  };
+}
+
+/* ───────── 그리기 ───────── */
+let posts=[], active=0; const seen=new Set();
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+function markKw(container,text,k){
+  // 스니펫 속 키워드 토큰을 굵게(당시 검색결과처럼). 사용자 입력은 textContent로만 넣는다.
+  const toks=[...new Set(k.t)].sort((a,b)=>b.length-a.length).map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+  const re=new RegExp("("+toks.join("|")+")","g");
+  text.split(re).forEach((part,i)=>container.append(i%2?el("b",null,part):document.createTextNode(part)));
+}
+
+function renderResults(k){
+  const ol=$("#results"); ol.innerHTML="";
+  $("#count").textContent=""; $("#count").append("블로그 검색결과 ",el("b",null,`'${k.full}'`),` 약 ${ri(12,980).toLocaleString()},${String(ri(0,999)).padStart(3,"0")}건`);
+  posts.forEach((p,i)=>{
+    const li=el("li","res");
+    const t=el("button","res-title",p.title); t.type="button";
+    if(seen.has(i))t.classList.add("seen"); if(i===active)t.setAttribute("aria-current","true");
+    t.onclick=()=>{active=i;seen.add(i);renderResults(k);renderPost(k);$("#post").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})};
+    const sn=el("p"); markKw(sn,p.paras[0].slice(0,110)+"...",k);
+    li.append(t,sn,el("span","src",`${p.date} · ${p.author}님의 블로그 · ${p.path}${p.no}`));
+    ol.append(li);
+  });
+}
+function renderPost(k){
+  const p=posts[active], a=$("#post"); a.innerHTML="";
+  $("#addr").textContent="http://blog.wordsalad"+p.path+p.no;
+  a.append(el("div","crumb",p.board));
+  a.append(el("h2",null,p.title));
+  const meta=el("div","meta");
+  [["작성자",p.author],["작성일",p.date+" "+p.time],["조회",p.views.toLocaleString()],["추천",String(ri(0,9))]].forEach(([l,v])=>{const s=el("span",null,l+" ");s.append(el("b",null,v));meta.append(s)});
+  a.append(meta);
+  const full=p.paras.join("\n\n");
+  const bar=()=>{const d=el("div","copybar");d.append(el("span",null,`본문 ${full.length.toLocaleString()}자`));const b=el("button","btn","본문 복사");b.type="button";b.onclick=()=>copyBody(b,full,body);d.append(b);return d};
+  const body=el("div","body"); p.paras.forEach(t=>body.append(el("p",null,t)));
+  a.append(bar(),body,bar());
+  const at=el("div","attach","첨부파일 : "); at.append(el("u",null,p.file),` (${(R()*180+3).toFixed(1)}MB) · 다운로드 ${ri(0,9999)}회 · 회원만 다운로드 가능합니다`); a.append(at);
+  const tags=el("div","tags","태그 :"); p.tags.forEach(t=>tags.append(el("span",null,t))); a.append(tags);
+  const rel=el("div","related","관련 검색어 :"); p.related.forEach(t=>rel.append(el("span",null,t))); a.append(rel);
+  const cm=el("ul","comments"); cm.setAttribute("aria-label",`댓글 ${p.comments.length}개`);
+  p.comments.forEach(c=>{const li=el("li");li.append(el("span","who",c.who),el("span",null,c.text),el("span","when",c.when));cm.append(li)}); a.append(cm);
+  a.append(el("div","counter",`TODAY ${p.today} · TOTAL ${p.total.toLocaleString()}`));
+}
+function copyBody(btn,text,bodyEl){
+  const say=(t)=>{btn.textContent=t;clearTimeout(btn._t);btn._t=setTimeout(()=>btn.textContent="본문 복사",1600)};
+  const fallback=()=>{const r=document.createRange();r.selectNodeContents(bodyEl);const s=getSelection();s.removeAllRanges();s.addRange(r);say("선택됨 · Ctrl+C")};
+  try{navigator.clipboard.writeText(text).then(()=>say("복사됨!"),fallback)}catch(e){fallback()}
+}
+function renderRank(k){
+  const ol=$("#rank"); ol.innerHTML="";
+  const pool=shuffle([k.full+" 다운","싸이월드 도토리 무료","버디버디 아바타","네이트온 대화명 모음","미니홈피 BGM 추천","세이클럽 방 만들기","출석체크 이벤트","피카츄 돈까스","빨간 마스크 실화","귀신 사진 모음","kw"]).filter(x=>x!=="kw").slice(0,10);
+  pool.forEach((t,i)=>{const li=el("li");li.append(el("em",null,String(i+1)),el("span",null,t));ol.append(li)});
+}
+
+function opts(){return{density:+$("#density").value,glitch:+$("#glitch").value,length:+$("#length").value}}
+function search(){
+  const q=$("#q").value.trim()||"스타크래프트 립버전 1.16.1"; $("#q").value=q;
+  try{localStorage.setItem("ws.q",q)}catch(e){}
+  const k=kwParts(q), o=opts();
+  posts=Array.from({length:5},(_,i)=>makePost(k,o,i)); active=0; seen.clear(); seen.add(0);
+  renderResults(k); renderPost(k); renderRank(k); renderSuggest();
+}
+try{const s=localStorage.getItem("ws.q");if(s)$("#q").value=s}catch(e){}
+$("#form").addEventListener("submit",e=>{e.preventDefault();search()});
+$("#again").onclick=search;
+// 현재 값이 어떤 결과를 내는지 한 줄로 알려 준다
+const NOW={
+  density:v=>v<=2?"→ 문단마다 한 번쯤, 눈치채기 어렵게":v<=5?"→ 문단마다 두세 번, 그 시절 평균":v<=8?"→ 문장보다 검색어가 더 눈에 띔":"→ 검색어로 도배된 글",
+  glitch:v=>v==0?"→ 원문 그대로, 문단도 깔끔하게 시작":v<=3?"→ 가끔 단어가 빠지고, 몇 문단은 중간부터 시작":v<=6?"→ 읽다 보면 걸리는 구멍이 많음":"→ 조사만 남은 너덜너덜한 글",
+  length:v=>`→ 문단 ${v}개, 약 ${(v*190).toLocaleString()}자`
+};
+const sumvals=()=>{$("#sumvals").textContent=`밀도 ${$("#density").value} · 오류 ${$("#glitch").value} · 길이 ${$("#length").value}`};
+["density","glitch","length"].forEach(id=>{
+  const r=$("#"+id), upd=()=>{r.nextElementSibling.textContent=r.value;$("#n-"+id).textContent=NOW[id](+r.value);sumvals()};
+  r.addEventListener("input",upd);r.addEventListener("change",search);upd();
+});
+// 처음엔 늘 펼친 상태. 좁은 화면에서만 접을 수 있고, 넓은 화면으로 돌아가면 다시 펼친다
+const optbox=$("#optbox"), narrow=matchMedia("(max-width:760px)");
+const syncOpt=()=>{if(!narrow.matches)optbox.open=true};
+narrow.addEventListener("change",syncOpt); syncOpt();
+optbox.querySelector("summary").addEventListener("click",e=>{if(!narrow.matches)e.preventDefault()});
+// (?) 도움말: 마우스를 올리거나 키보드로 포커스하면 보이고, 누르면 고정/해제. Esc나 바깥 클릭으로 닫힌다.
+const qs=[...document.querySelectorAll(".q")];
+const setTip=(b,on)=>{b.setAttribute("aria-expanded",on);document.getElementById(b.getAttribute("aria-controls")).hidden=!on};
+qs.forEach(b=>{
+  b.addEventListener("mouseenter",()=>{if(!b.dataset.pin)setTip(b,true)});
+  b.addEventListener("mouseleave",()=>{if(!b.dataset.pin)setTip(b,false)});
+  b.addEventListener("focus",()=>setTip(b,true));
+  b.addEventListener("blur",()=>{if(!b.dataset.pin)setTip(b,false)});
+  b.addEventListener("click",e=>{e.stopPropagation();const pin=!b.dataset.pin;qs.forEach(o=>{delete o.dataset.pin;setTip(o,false)});if(pin){b.dataset.pin="1";setTip(b,true)}});
+});
+const closeTips=()=>qs.forEach(o=>{delete o.dataset.pin;setTip(o,false)});
+document.addEventListener("click",closeTips);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTips()});
+// 추천 검색어: 그 시절 스팸이 노리던 검색어 풀에서 검색할 때마다 4개를 무작위로 뽑는다(지금 검색어는 제외)
+const SUGGEST=["스타크래프트 립버전 1.16.1","포토샵 CS3 한글판","카트라이더 무한부스터","싸이월드 BGM 무료","버디버디 아바타 공짜",
+  "메이플스토리 메소 무한","곰플레이어 코덱","알집 최신버전","한글 2007 다운","디아블로2 1.13 패치","크레이지아케이드 바늘 무한",
+  "네이트온 대화명 모음","미니홈피 스킨 무료","오디션 커플링 공짜","피망 뉴맞고 머니","윈도우XP 서비스팩3","엠피쓰리 무료 다운",
+  "리니지 프리서버","비주얼베이직 6.0","다음 카페 등업 방법","텔미 뮤비","거짓말 벨소리","무한도전 다시보기","꽃보다 남자 1회",
+  "세이클럽 무료 아이템","주니어네이버 게임","프린세스 메이커2 한글","포켓몬 골드 롬파일"];
+function renderSuggest(){
+  const box=$("#suggest"); box.querySelectorAll("button").forEach(b=>b.remove());
+  shuffle(SUGGEST.filter(s=>s!==$("#q").value.trim())).slice(0,4).forEach(s=>{
+    const b=el("button",null,s); b.type="button"; b.onclick=()=>{$("#q").value=s;search()}; box.append(b);
+  });
+}
+const notice=$("#notice");
+try{if(localStorage.getItem("ws.notice")==="closed")notice.open=false}catch(e){}
+notice.addEventListener("toggle",()=>{try{localStorage.setItem("ws.notice",notice.open?"open":"closed")}catch(e){}});
+search();
+</script>
+</body>
+</html>
